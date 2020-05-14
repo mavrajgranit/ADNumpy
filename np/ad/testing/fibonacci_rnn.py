@@ -1,4 +1,4 @@
-from np.ad.nn import Tensor, Linear, MSE_Loss, Sigmoid, SGD, Sequential, Module, Tanh
+from np.ad.nn import Tensor, Variable, Linear, MSE_Loss, Sigmoid, SGD, Sequential, Module, Tanh
 
 
 class RNN(Module):
@@ -15,39 +15,78 @@ class RNN(Module):
         return y, l
 
     def init_hidden(self):
-        return Tensor((1, self.l.outputs), rand_init=False)
+        return Tensor((1, self.l.outputs), requires_grad=False)
 
-inputs = [Tensor([[1.0]]), Tensor([[1.0]]), Tensor([[2.0]]), Tensor([[3.0]]), Tensor([[5.0]]), Tensor([[8.0]]), Tensor([[13.0]]), Tensor([[21.0]]), Tensor([[34.0]]), Tensor([[55.0]])]
-targets = [Tensor([[1.0]]), Tensor([[2.0]]), Tensor([[3.0]]), Tensor([[5.0]]), Tensor([[8.0]]), Tensor([[13.0]]), Tensor([[21.0]])]
 
-rnn = RNN(1, 1)
-lr = 0.001
-optimizer = SGD(rnn, lr=lr)
-criterion = MSE_Loss()
+class RNN(Module):
 
-for e in range(20000):
+    def __init__(self, w, b, m, s=0):
+        super(RNN, self).__init__()
+        self.w = Tensor(w)
+        self.b = Tensor(b)
+        self.m = Tensor(m)
+        self.s = s
 
+    def forward(self, x, hidden):
+        o = self.w @ x + self.b
+        h = self.m @ hidden
+        y = o + h
+        return y, y
+
+    def init_hidden(self):
+        return Tensor([self.s], requires_grad=False)
+
+rnn = RNN([1.0], [0.0], [1.0])
+lr = 0.000000001
+optim = SGD(rnn.parameters(), lr=lr)
+inputs = [
+
+]
+
+targets = [
+
+]
+
+def generate_fib(n, c=1.0, prev=0, cc=0):
+    if cc == 0:
+        inputs.append(Tensor([1.0], requires_grad=False))
+        f = 1.0
+        c = 0.0
+    else:
+        f = c + prev
+        inputs.append(Tensor([f], requires_grad=False))
+
+    cc += 1
+    if cc <= n:
+        generate_fib(n, f, c, cc)
+
+
+train = 21
+test = 3
+
+generate_fib(train + test)
+targets = inputs[1:len(inputs)]
+del inputs[len(inputs) - 1]
+
+print(targets)
+
+for e in range(500):
     l = 0
     hidden = rnn.init_hidden()
-    for i in range(len(inputs)-5):
-        x = inputs[i]
-        t = targets[i]
-        y, hidden = rnn(x, hidden)
-
-        loss = criterion(y, t, keepdims=True)
+    for i in range(len(inputs) - test):
+        y, hidden = rnn(inputs[i], hidden)
+        loss = ((targets[i] - y) ** 2 / 2).sum()
         loss.backward()
-        l += loss.item()
-
-    optimizer.step()
-    optimizer.zero_grad()
+        l += loss
+    optim.step()
+    optim.zero_grad()
     print(e, l)
 
 hidden = rnn.init_hidden()
+l = 0
 for i in range(len(inputs)):
-    x = inputs[i]
-    y, hidden = rnn(x, hidden)
+    y, hidden = rnn(inputs[i], hidden)
+    l += ((targets[i] - y) ** 2 / 2).sum()
     print(y)
-
-print(rnn.l.w)
-print(rnn.l.b)
-print(rnn.m.w)
+print(l)
+print(rnn.w, rnn.b, rnn.m)

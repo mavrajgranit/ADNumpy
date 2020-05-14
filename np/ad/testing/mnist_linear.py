@@ -25,16 +25,16 @@ trainloader = DataLoader(trainset, batch_size=BATCH_SIZE, shuffle=True)
 testset = MNIST("../data/mnist", train=False, transform=transform)
 testloader = DataLoader(testset, batch_size=len(testset), shuffle=False)
 
-model = Sequential([
+model = Sequential(
     Linear(INPUT_SIZE, 256),
     LeakyRelu(0.2),
     Linear(256, 128),
     LeakyRelu(0.2),
     Linear(128, OUTPUT_SIZE),
     Softmax()
-])
+)
 
-optim = SGD(model, lr=0.01)
+optim = SGD(model.parameters(), lr=0.01)
 criterion = MSE_Loss()
 
 
@@ -42,11 +42,11 @@ def train():
     l = 0
     correct = 0
     for i, (x, label) in enumerate(trainloader):
-        x = Tensor(x.view(-1, INPUT_SIZE).numpy())
-        label = Tensor(label.numpy()).reshape((label.size(0), 1))
+        x = Tensor(x.view(-1, INPUT_SIZE).numpy(), requires_grad=False)
+        label = Tensor(label.numpy(), requires_grad=False).reshape((label.size(0), 1))
 
         x_ = model(x)
-        x_label = Tensor((x_.shape[0], OUTPUT_SIZE))
+        x_label = Tensor((x_.shape[0], OUTPUT_SIZE), requires_grad=False)
         x_label.put_(label, 1, 1.0)
         preds = x_.argmax(1).reshape((label.shape[0], 1))
         correct += (preds == label).sum().item()
@@ -65,11 +65,11 @@ def test():
     l = 0
     correct = 0
     for i, (x, label) in enumerate(testloader):
-        x = Tensor(x.view(-1, INPUT_SIZE).numpy())
-        label = label.numpy().reshape(label.size(0), 1)
+        x = Tensor(x.view(-1, INPUT_SIZE).numpy(), requires_grad=False)
+        label = Tensor(label.numpy().reshape(label.size(0), 1), requires_grad=False)
 
         x_ = model(x)
-        x_label = Tensor((x_.shape[0], OUTPUT_SIZE))
+        x_label = Tensor((x_.shape[0], OUTPUT_SIZE), requires_grad=False)
         x_label.put_(label, 1, 1.0)
         preds = x_.argmax(1).reshape((label.shape[0], 1))
         correct += (preds == label).sum().item()
