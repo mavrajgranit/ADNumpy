@@ -216,6 +216,13 @@ class Variable:
         else:
             raise TypeError("Only Tensor variables are supported.")
 
+    def __getattr__(self, item):
+        result = getattr(self.tensor, item)
+        return result
+
+    def __repr__(self):
+        return repr(self.tensor)
+
 
 # Layers
 class Module:
@@ -228,8 +235,8 @@ class Module:
         parameters = []
         for key in variables:
             value = variables[key]
-            if isinstance(value, Tensor):
-                parameters.append(value)
+            if isinstance(value, Variable):
+                parameters.append(value.tensor)
             elif isinstance(value, Module):
                 parameters += value.parameters()
         return parameters
@@ -239,7 +246,9 @@ class Module:
         parameters = {}
         for key in variables:
             value = variables[key]
-            if isinstance(value, (Tensor, Module)):
+            if isinstance(value, Variable):
+                parameters[key] = value.tensor
+            elif isinstance(value, Module):
                 parameters[key] = value
         return parameters
 
@@ -281,10 +290,10 @@ class Linear(Module):
         super().__init__()
         self.inputs = inputs
         self.outputs = outputs
-        self.w = Tensor.random((inputs, outputs), min=-0.01, max=0.01, requires_grad=True)
+        self.w = Variable(Tensor.random((inputs, outputs), min=-0.01, max=0.01, requires_grad=True))
         self.b = None
         if bias:
-            self.b = Tensor.random((1, outputs), min=-0.01, max=0.01, requires_grad=True)
+            self.b = Variable(Tensor.random((1, outputs), min=-0.01, max=0.01, requires_grad=True))
 
     def forward(self, x):
         o = x @ self.w
@@ -313,8 +322,8 @@ class DynamicModule:
         parameters = []
         for key in variables:
             value = variables[key]
-            if isinstance(value, Tensor):
-                parameters.append(value)
+            if isinstance(value, Variable):
+                parameters.append(value.tensor)
             elif isinstance(value, DynamicModule):
                 parameters.append(value)
         return parameters

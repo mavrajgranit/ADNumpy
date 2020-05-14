@@ -1,11 +1,11 @@
-from np.ad.nn import Tensor, Linear, MSE_Loss, Sigmoid, SGD, Sequential
+from np.ad.nn import Tensor, Linear, MSE_Loss, Sigmoid, SGD, Sequential, Variable
 
 l1 = Linear(2, 2)
-l1.w = Tensor([[1.0, 1.0], [2.0, 2.0]])
-l1.b = Tensor([[1.0, 1.0]])
+l1.w = Variable(Tensor([[1.0, 1.0], [2.0, 2.0]]))
+l1.b = Variable(Tensor([[1.0, 1.0]]))
 l2 = Linear(2, 1)
-l2.w = Tensor([[1.0], [2.0]])
-l2.b = Tensor([[1.0]])
+l2.w = Variable(Tensor([[1.0], [2.0]]))
+l2.b = Variable(Tensor([[1.0]]))
 sigmoid = Sigmoid()
 model = Sequential(l1, sigmoid, l2)
 
