@@ -18,7 +18,7 @@ class Operation:
 
             if isinstance(p, Variable):
                 parents[i] = p = p.tensor
-            if not isinstance(p, Tensor):
+            elif not isinstance(p, Tensor):
                 parents[i] = p = Tensor(p, requires_grad=False, retain_grad=False)
             rg = rg or p.requires_grad
 

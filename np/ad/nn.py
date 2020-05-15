@@ -208,17 +208,23 @@ class Context:
         self.saved_tensors = tensors
 
 
-class Variable:
+class Variable(Tensor):
 
     def __init__(self, tensor):
         if isinstance(tensor, Tensor):
-            self.tensor = tensor
+            super().__setattr__("tensor", tensor)
         else:
             raise TypeError("Only Tensor variables are supported.")
 
-    def __getattr__(self, item):
-        result = getattr(self.tensor, item)
+    def __getattr__(self, name):
+        result = getattr(self.tensor, name)
         return result
+
+    def __setattr__(self, name, value):
+        setattr(self.tensor, name, value)
+
+    def __delattr__(self, name):
+        delattr(self.tensor, name)
 
     def __repr__(self):
         return repr(self.tensor)
