@@ -22,9 +22,9 @@ class RNN(Module):
 
     def __init__(self, w, b, m, s=0):
         super(RNN, self).__init__()
-        self.w = Tensor(w)
-        self.b = Tensor(b)
-        self.m = Tensor(m)
+        self.w = Variable(Tensor(w))
+        self.b = Variable(Tensor(b))
+        self.m = Variable(Tensor(m))
         self.s = s
 
     def forward(self, x, hidden):

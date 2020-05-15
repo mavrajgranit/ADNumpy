@@ -4,7 +4,7 @@ class Operation:
 
     @classmethod
     def forward(cls, *args, **kargs):
-        from np.ad.nn import Tensor, Context
+        from np.ad.nn import Tensor, Context, Variable
         if isinstance(args[0], (tuple, list)):
             parents = list(args[0])
             args = [parents]
@@ -15,7 +15,10 @@ class Operation:
         rg = False
         for i in range(len(parents)):
             p = parents[i]
-            if not isinstance(p, Tensor):
+
+            if isinstance(p, Variable):
+                parents[i] = p = p.tensor
+            elif not isinstance(p, Tensor):
                 parents[i] = p = Tensor(p, requires_grad=False, retain_grad=False)
             rg = rg or p.requires_grad
 

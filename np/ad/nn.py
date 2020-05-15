@@ -208,13 +208,26 @@ class Context:
         self.saved_tensors = tensors
 
 
-class Variable:
+class Variable(Tensor):
 
     def __init__(self, tensor):
         if isinstance(tensor, Tensor):
-            self.tensor = tensor
+            super().__setattr__("tensor", tensor)
         else:
             raise TypeError("Only Tensor variables are supported.")
+
+    def __getattr__(self, name):
+        result = getattr(self.tensor, name)
+        return result
+
+    def __setattr__(self, name, value):
+        setattr(self.tensor, name, value)
+
+    def __delattr__(self, name):
+        delattr(self.tensor, name)
+
+    def __repr__(self):
+        return repr(self.tensor)
 
 
 # Layers
@@ -228,8 +241,8 @@ class Module:
         parameters = []
         for key in variables:
             value = variables[key]
-            if isinstance(value, Tensor):
-                parameters.append(value)
+            if isinstance(value, Variable):
+                parameters.append(value.tensor)
             elif isinstance(value, Module):
                 parameters += value.parameters()
         return parameters
@@ -239,7 +252,9 @@ class Module:
         parameters = {}
         for key in variables:
             value = variables[key]
-            if isinstance(value, (Tensor, Module)):
+            if isinstance(value, Variable):
+                parameters[key] = value.tensor
+            elif isinstance(value, Module):
                 parameters[key] = value
         return parameters
 
@@ -281,10 +296,10 @@ class Linear(Module):
         super().__init__()
         self.inputs = inputs
         self.outputs = outputs
-        self.w = Tensor.random((inputs, outputs), min=-0.01, max=0.01, requires_grad=True)
+        self.w = Variable(Tensor.random((inputs, outputs), min=-0.01, max=0.01, requires_grad=True))
         self.b = None
         if bias:
-            self.b = Tensor.random((1, outputs), min=-0.01, max=0.01, requires_grad=True)
+            self.b = Variable(Tensor.random((1, outputs), min=-0.01, max=0.01, requires_grad=True))
 
     def forward(self, x):
         o = x @ self.w
@@ -313,8 +328,8 @@ class DynamicModule:
         parameters = []
         for key in variables:
             value = variables[key]
-            if isinstance(value, Tensor):
-                parameters.append(value)
+            if isinstance(value, Variable):
+                parameters.append(value.tensor)
             elif isinstance(value, DynamicModule):
                 parameters.append(value)
         return parameters
