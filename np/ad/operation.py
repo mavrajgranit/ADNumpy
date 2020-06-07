@@ -1,4 +1,3 @@
-
 class Operation:
     name = "NOOP"
 
@@ -49,6 +48,8 @@ class Operation:
 
 import numpy as np
 
+
+# Math Operations
 
 class Add(Operation):
     name = "ADD"
@@ -220,7 +221,7 @@ class Pow(Operation):
         yg = y.requires_grad
         grads = []
 
-        res = x.value**y.value
+        res = x.value ** y.value
 
         grads.append((x.value, y.value) if xg else None)
         grads.append((res, x.value) if yg else None)
@@ -235,7 +236,7 @@ class Pow(Operation):
         dx = None
         if xg is not None:
             x, y = xg
-            dx = x**(y-1)
+            dx = x ** (y - 1)
 
         dy = None
         if yg is not None:
@@ -290,9 +291,11 @@ class Mean(Operation):
         if g is not None:
             shape, axis = g
             # TODO multiple axis sum mean
-            dx = grad * np.ones(shape)/shape[axis]
+            dx = grad * np.ones(shape) / shape[axis]
         return [dx]
 
+
+# Activation Function Operations
 
 class Sigmoid(Operation):
     name = "SIGMOID"
@@ -334,7 +337,7 @@ class Tanh(Operation):
     @staticmethod
     def backward(ctxt, grad):
         xg, = ctxt.saved_tensors
-        dx = grad * (1 - xg**2) if xg is not None else None
+        dx = grad * (1 - xg ** 2) if xg is not None else None
         return [dx]
 
 
@@ -363,11 +366,8 @@ class Relu(Operation):
         return [dx]
 
 
-class LeakyRelu(Operation):
+class leaky_relu(Operation):
     name = "LeakyRELU"
-
-    def __init__(self, a):
-        self.a = a
 
     @staticmethod
     def forward_(ctxt, x, a=0.2):
@@ -375,7 +375,7 @@ class LeakyRelu(Operation):
         xg = x.requires_grad
         xv = x.value
 
-        res = np.where(xv < 0, xv*a, xv)
+        res = np.where(xv < 0, xv * a, xv)
 
         grads.append((x.value, a) if xg else None)
         ctxt.save(grads)
@@ -389,22 +389,36 @@ class LeakyRelu(Operation):
         dx = None
         if g is not None:
             xg, a = g
-            dx = grad*np.where(xg <= 0, a, 1.0)
+            dx = grad * np.where(xg <= 0, a, 1.0)
         return [dx]
 
 
-class Softmax(Operation):
+class LeakyRelu:
+
+    def __init__(self, a):
+        self.a = a
+
+    def forward(self, x):
+        return leaky_relu.forward(x, a=self.a)
+
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+
+
+class softmax(Operation):
     name = "SOFTMAX"
 
     @staticmethod
-    def forward_(ctxt, x):
+    def forward_(ctxt, x, axis=None):
         grads = []
         xg = x.requires_grad
 
         xv = x.value
         sx = xv - np.max(xv)
         exps = np.exp(sx)
-        res = exps / np.sum(exps, axis=xv.ndim - 1, keepdims=True)
+        if axis is None:
+            axis = x.ndim - 2
+        res = exps / np.sum(exps, axis=axis, keepdims=True)
 
         grads.append(res if xg else None)
         ctxt.save(grads)
@@ -416,6 +430,20 @@ class Softmax(Operation):
         dx = grad * (xg * (1 - xg)) if xg is not None else None
         return [dx]
 
+
+class Softmax:
+
+    def __init__(self, axis=None):
+        self.axis = axis
+
+    def forward(self, x):
+        return softmax.forward(x, axis=self.axis)
+
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+
+
+# Functional Operations
 
 class Transpose(Operation):
     name = "TRANSPOSE"
@@ -655,3 +683,85 @@ class Equals(Operation):
 
         return [dx, dy]
 
+
+# Advanced Operations
+
+import np.ad.functional as F
+
+
+class conv1d(Operation):
+    name = "CONV1D"
+
+    @staticmethod
+    def forward_(ctxt, x, kernel, kx=1, ky=1, channel=1, stride=(1, 1)):
+        grads = []
+        xg = x.requires_grad
+        kg = kernel.requires_grad
+
+        xv = x.value
+        kv = kernel.value
+
+        res, res_s, nv = F.conv1d(xv, kv, kx, ky, channel, stride)
+
+        grads.append((xv.shape, kv, kx, ky, channel, stride) if xg else None)
+        grads.append((nv, res_s) if kg else None)
+        ctxt.save(grads)
+
+        return res
+
+    @staticmethod
+    def backward(ctxt, grad):
+        xg, kg = ctxt.saved_tensors
+
+        dx = None
+        if xg is not None:
+            xv_s, kv, kx, ky, channel, stride = xg
+            rkv = np.fliplr(kv)
+
+            dx = F.conv1d_transpose(grad, rkv, kx, ky, channel, stride)
+
+        dk = None
+        if kg is not None:
+            nv, shape = kg
+            axes = (0, 2, 1) if nv.ndim == 3 else None
+            dk = grad.reshape(shape) @ nv.transpose(axes) if kg is not None else None
+
+        return [dx, dk]
+
+
+class conv1d_transpose(Operation):
+    name = "CONV1D_T"
+
+    @staticmethod
+    def forward_(ctxt, x, kernel, kx=1, ky=1, channel=1, stride=(1, 1)):
+        grads = []
+        xg = x.requires_grad
+        kg = kernel.requires_grad
+
+        xv = x.value
+        kv = kernel.value
+
+        res = F.conv1d_transpose(xv, kv, kx, ky, channel, stride)
+
+        grads.append((kv, kx, ky, channel, stride) if xg else None)
+        grads.append((None, None) if kg else None)
+        ctxt.save(grads)
+
+        return res
+
+    @staticmethod
+    def backward(ctxt, grad):
+        xg, kg = ctxt.saved_tensors
+
+        dx = None
+        if xg is not None:
+            kv, kx, ky, channel, stride = xg
+            rkv = np.fliplr(kv)
+
+            dx, _, _ = F.conv1d(grad, rkv, kx, ky, channel, stride)
+
+        dk = None
+        if kg is not None:
+            pass
+
+        return [dx, dk]

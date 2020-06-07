@@ -14,6 +14,13 @@ class Tensor:
     def shape(self):
         return self.value.shape
 
+    def size(self, x):
+        return self.value.shape[x]
+
+    @property
+    def ndim(self):
+        return self.value.ndim
+
     def __init__(self, value, requires_grad=True, retain_grad=None, operation=None, parents=None, context=None):
         if isinstance(value, np.ndarray):
             self.value = value
@@ -306,6 +313,28 @@ class Linear(Module):
         if self.b is not None:
             o += self.b
         return o
+
+
+class Conv1d(Module):
+
+    def __init__(self, kx, ky, channel=1, stride=(1, 1), bias=True):
+        self.kx = kx
+        self.ky = ky
+        self.channel = channel
+        self.stride = stride
+        self.k = Variable(Tensor.random((channel, ky*kx), min=-0.01, max=0.01, requires_grad=True))
+        self.bias = bias
+        if bias:
+            self.b = Variable(Tensor.random((channel, 1), min=-0.01, max=0.01, requires_grad=True))
+
+    def forward(self, x):
+        c = conv1d.forward(x, self.k, kx=self.kx, ky=self.ky, channel=self.channel, stride=self.stride)
+        if self.bias:
+            c += self.b
+        return c
+
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
 
 
 class ReshapeLayer(Module):
