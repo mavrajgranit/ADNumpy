@@ -473,18 +473,107 @@ def test_conv1d_operation_gradient_is_correct():
 
 
 def test_conv1dtranspose_operation_gradient_is_correct():
-    assert True
-    """x = Tensor([[1.0, 2.0, 3.0]])
-    k = Tensor([[1.0, 2.0],
-                [3.0, 4.0]])
+    x = Tensor([[1.0, 2.0, 3.0]])
+    k = Tensor([[1.0, 2.0]])
     y = conv1d_transpose.forward(x, k, kx=2, ky=1, channel=1, stride=(1, 1))
-    print(y)
+
     assert np.equal(y.value, np.array([[2.0, 5.0, 8.0, 3.0]])).all()
     y = y.mul([[1.0, 2.0, 3.0, 4.0]])
     y.backward()
     assert np.equal(x.gradient, np.array([[4.0, 7.0, 10.0]])).all()
-    assert np.equal(k.gradient, np.array([[1.0, 2.0]])).all()
-    print(x.gradient)"""
+    assert np.equal(k.gradient, np.array([[20.0, 14.0]])).all()
+
+    x = Tensor([[1.0, 2.0, 3.0],
+                [4.0, 5.0, 6.0]])
+    k = Tensor([[1.0, 2.0]])
+    y = conv1d_transpose.forward(x, k, kx=2, ky=1, channel=1, stride=(1, 1))
+
+    assert np.equal(y.value, np.array([[2.0, 5.0, 8.0, 3.0], [8.0, 14.0, 17.0, 6.0]])).all()
+    y = y.mul([[1.0, 2.0, 3.0, 4.0],
+               [5.0, 6.0, 7.0, 8.0]])
+    y.backward()
+    assert np.equal(x.gradient, np.array([[4.0, 7.0, 10.0], [16.0, 19.0, 22.0]])).all()
+    assert np.equal(k.gradient, np.array([[127.0, 106.0]])).all()
+
+    x = Tensor([[1.0, 2.0, 3.0],
+                [4.0, 5.0, 6.0]])
+    k = Tensor([[1.0, 2.0, 3.0, 4.0]])
+    y = conv1d_transpose.forward(x, k, kx=2, ky=2, channel=1, stride=(1, 1))
+
+    assert np.equal(y.value, np.array([[4.0, 11.0, 18.0, 9.0], [18.0, 37.0, 47.0, 21.0], [8.0, 14.0, 17.0, 6.0]])).all()
+    y = y.mul([[1.0, 2.0, 3.0, 4.0],
+               [5.0, 6.0, 7.0, 8.0],
+               [9.0, 10.0, 11.0, 12.0]])
+    y.backward()
+    assert np.equal(x.gradient, np.array([[26.0, 36.0, 46.0], [66.0, 76.0, 86.0]])).all()
+    assert np.equal(k.gradient, np.array([[211.0, 190.0, 127.0, 106.0]])).all()
+
+    x = Tensor([[1.0, 2.0, 3.0, 4.0, 5.0]])
+    k = Tensor([[1.0, 2.0]])
+    y = conv1d_transpose.forward(x, k, kx=2, ky=1, channel=1, stride=(3, 1))
+
+    assert np.equal(y.value, np.array([[2.0, 1.0, 0.0, 4.0, 2.0, 0.0, 6.0, 3.0, 0.0, 8.0, 4.0, 0.0, 10.0, 5.0]])).all()
+    y = y.mul([[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0]])
+    y.backward()
+    assert np.equal(x.gradient, np.array([[4.0, 13.0, 22.0, 31.0, 40.0]])).all()
+    assert np.equal(k.gradient, np.array([[150.0, 135.0]])).all()
+
+    x = Tensor([[1.0, 2.0, 3.0, 4.0],
+                [5.0, 6.0, 7.0, 8.0],
+                [9.0, 10.0, 11.0, 12.0]])
+    k = Tensor([[1.0, 2.0]])
+    y = conv1d_transpose.forward(x, k, kx=2, ky=1, channel=1, stride=(1, 2))
+
+    assert np.equal(y.value, np.array([[2.0, 5.0, 8.0, 11.0, 4.0],
+                                       [0.0, 0.0, 0.0, 0.0, 0.0],
+                                       [10.0, 17.0, 20.0, 23.0, 8.0],
+                                       [0.0, 0.0, 0.0, 0.0, 0.0],
+                                       [18.0, 29.0, 32.0, 35.0, 12.0]])).all()
+    y = y.mul([[1.0, 2.0, 3.0, 4.0, 5.0],
+               [6.0, 7.0, 8.0, 9.0, 10.0],
+               [11.0, 12.0, 13.0, 14.0, 15.0],
+               [16.0, 17.0, 18.0, 19.0, 20.0],
+               [21.0, 22.0, 23.0, 24.0, 25.0]])
+    y.backward()
+    assert np.equal(x.gradient, np.array([[4.0, 7.0, 10.0, 13.0],
+                                          [34.0, 37.0, 40.0, 43.0],
+                                          [64.0, 67.0, 70.0, 73.0]])).all()
+    assert np.equal(k.gradient, np.array([[1388.0, 1310.0]])).all()
+
+    x = Tensor([[1.0, 2.0, 3.0, 4.0],
+                [5.0, 6.0, 7.0, 8.0],
+                [9.0, 10.0, 11.0, 12.0]])
+    k = Tensor([[1.0, 2.0]])
+    y = conv1d_transpose.forward(x, k, kx=2, ky=1, channel=1, stride=(2, 2))
+
+    assert np.equal(y.value, np.array([[2.0, 1.0, 4.0, 2.0, 6.0, 3.0, 8.0, 4.0],
+                                       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                       [10.0, 5.0, 12.0, 6.0, 14.0, 7.0, 16.0, 8.0],
+                                       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                       [18.0, 9.0, 20.0, 10.0, 22.0, 11.0, 24.0, 12.0]])).all()
+    y = y.mul([[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+               [9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0],
+               [17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0],
+               [25.0, 26.0, 27.0, 28.0, 29.0, 30.0, 31.0, 32.0],
+               [33.0, 34.0, 35.0, 36.0, 37.0, 38.0, 39.0, 40.0]])
+    y.backward()
+    assert np.equal(x.gradient, np.array([[4.0, 10.0, 16.0, 22.0],
+                                          [52.0, 58.0, 64.0, 70.0],
+                                          [100.0, 106.0, 112.0, 118.0]])).all()
+    assert np.equal(k.gradient, np.array([[2180.0, 2102.0]])).all()
+
+    x = Tensor([[1.0, 2.0, 3.0]])
+    k = Tensor([[1.0, 2.0],
+                [3.0, 4.0]])
+    y = conv1d_transpose.forward(x, k, kx=2, ky=1, channel=2, stride=(1, 1))
+
+    assert np.equal(y.value, np.array([[2.0, 5.0, 8.0, 3.0],
+                                       [4.0, 11.0, 18.0, 9.0]])).all()
+    y = y.mul([[1.0, 2.0, 3.0, 4.0],
+               [5.0, 6.0, 7.0, 8.0]])
+    y.backward()
+    assert np.equal(x.gradient, np.array([[68.0, 88.0, 108.0]])).all()
+    assert np.equal(k.gradient, np.array([[20.0, 14.0], [44.0, 38.0]])).all()
 
 
-pytest.main(["-x", "operation_ad_test.py", ""])
+pytest.main(["-x", "operation_ad_test.py"])
