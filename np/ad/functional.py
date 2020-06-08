@@ -22,8 +22,8 @@ def conv1d(xv, kv, kx, ky, channel, stride):
     nv = np.empty(nv_s)
 
     i = 0
-    for y in range(0, ny + sy - 1, sy):
-        for x in range(0, nx + sx - 1, sx):
+    for y in range(0, xv.shape[-2]-ky+1, sy):
+        for x in range(0, xv.shape[-1]-kx+1, sx):
             if dep:
                 nv[:, :, i] = xv[:, y:y + ky, x:x + kx].reshape(x_rs)
             else:
@@ -35,7 +35,7 @@ def conv1d(xv, kv, kx, ky, channel, stride):
 
 
 # only correct in the case of conv1d backward TODO FIX
-def conv1d_transpose(xv, kv, kx, ky, channel, stride):
+def conv1d_transpose_(xv, kv, kx, ky, channel, stride):
     gs = xv.shape
     y_amount = int(gs[-2] / channel)
     amount = ky * kx
@@ -83,3 +83,24 @@ def conv1d_transpose(xv, kv, kx, ky, channel, stride):
                 else:
                     res[y, x] += kv[c, :] @ x_t[c, y:y + ky, x:x + kx].reshape(x_rs)
     return res
+
+
+def conv1d_transpose(xv, kv, kx, ky, channel, stride):
+    sx, sy = stride
+    xy = xv.shape[-2]
+    xx = xv.shape[-1]
+    dep = xv.ndim == 3
+
+    if dep:
+        xt_s = (xv.shape[-3], xy + (ky - 1) * 2 + (sy - 1) * (xy - 1), xx + (kx - 1) * 2 + (sx - 1) * (xx - 1))
+    else:
+        xt_s = (xy + (ky - 1) * 2 + (sy - 1) * (xy - 1), xx + (kx - 1) * 2 + (sx - 1) * (xx - 1))
+
+    x_t = np.zeros(xt_s)
+    for y in range(xy):
+        for x in range(xx):
+            if dep:
+                x_t[:, y * sy + ky - 1, x * sx + kx - 1] = xv[:, y, x]
+            else:
+                x_t[y * sy + ky - 1, x * sx + kx - 1] = xv[y, x]
+    return conv1d(x_t, kv, kx, ky, channel, (1, 1))

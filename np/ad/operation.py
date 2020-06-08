@@ -718,7 +718,16 @@ class conv1d(Operation):
             xv_s, kv, kx, ky, channel, stride = xg
             rkv = np.fliplr(kv)
 
-            dx = F.conv1d_transpose(grad, rkv, kx, ky, channel, stride)
+            dx = F.conv1d_transpose_(grad, rkv, kx, ky, channel, stride)
+            """dx = np.zeros(xv_s)
+            y_amount = int(grad.shape[-2] / channel)
+            print(y_amount)
+
+            for y in range(grad.shape[-2]):
+                    c = y%channel
+                    out, _, _ = F.conv1d_transpose(grad[y, None, :], rkv[c, None, :], kx, ky, 1, stride)
+                    print(out, int(y%y_amount), c, dx.shape)
+                    dx[int(y%y_amount), None, :] += out"""
 
         dk = None
         if kg is not None:
@@ -741,10 +750,10 @@ class conv1d_transpose(Operation):
         xv = x.value
         kv = kernel.value
 
-        res = F.conv1d_transpose(xv, kv, kx, ky, channel, stride)
+        res, res_s, nv = F.conv1d_transpose(xv, kv, kx, ky, channel, stride)
 
-        grads.append((kv, kx, ky, channel, stride) if xg else None)
-        grads.append((None, None) if kg else None)
+        grads.append((xv.shape, kv, kx, ky, channel, stride) if xg else None)
+        grads.append((nv, res_s) if kg else None)
         ctxt.save(grads)
 
         return res
@@ -755,13 +764,29 @@ class conv1d_transpose(Operation):
 
         dx = None
         if xg is not None:
-            kv, kx, ky, channel, stride = xg
+            xv_s, kv, kx, ky, channel, stride = xg
             rkv = np.fliplr(kv)
+            dep = len(xv_s) == 3
 
-            dx, _, _ = F.conv1d(grad, rkv, kx, ky, channel, stride)
+            out, _, _ = F.conv1d(grad, rkv, kx, ky, channel, stride)
+
+            if xv_s != out.shape:
+                dx = np.zeros(xv_s)
+                y_amount = int(grad.shape[-2] / channel)
+
+                for y in range(out.shape[-2]):
+                    for x in range(out.shape[-1]):
+                        if dep:
+                            dx[:, y%y_amount, x] += out[:, y, x]
+                        else:
+                            dx[y % y_amount, x] += out[y, x]
+            else:
+                dx = out
 
         dk = None
         if kg is not None:
-            pass
+            nv, shape = kg
+            axes = (0, 2, 1) if nv.ndim == 3 else None
+            dk = grad.reshape(shape) @ nv.transpose(axes) if kg is not None else None
 
         return [dx, dk]
