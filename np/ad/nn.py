@@ -33,10 +33,11 @@ class Tensor:
         else:
             raise Exception("Type not supported: " + str(type(value)))
         self.gradient = None
-        self.zero_grad()
         self.requires_grad = requires_grad
         self.retain_grad = True if (
                     retain_grad is None and operation is None) else retain_grad if retain_grad else False
+        if self.retain_grad:
+            self.zero_grad()
         self.operation = operation
         self.parents = parents
         self.context = context
@@ -115,6 +116,9 @@ class Tensor:
 
     def transpose(self, axes=None):
         return Transpose.forward(self, axes=axes)
+
+    def fliplr(self):
+        return FlipLR.forward(self)
 
     def reshape(self, shape):
         return Reshape.forward(self, shape=shape)
@@ -337,6 +341,29 @@ class Conv1d(Module):
         return self.forward(*args, **kwargs)
 
 
+class Conv2d(Module):
+
+    def __init__(self, kx, ky, kz, channel=1, stride=(1, 1), bias=True):
+        self.kx = kx
+        self.ky = ky
+        self.kz = kz
+        self.channel = channel
+        self.stride = stride
+        self.k = Variable(Tensor.random((channel, ky*kx*kz), min=-0.9, max=0.9, requires_grad=True))
+        self.bias = bias
+        if bias:
+            self.b = Variable(Tensor.random((channel, 1, 1), min=-0.9, max=0.9, requires_grad=True))
+
+    def forward(self, x):
+        c = conv2d.forward(x, self.k, kx=self.kx, ky=self.ky, kz=self.kz, channel=self.channel, stride=self.stride)
+        if self.bias:
+            c += self.b
+        return c
+
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+
+
 class ReshapeLayer(Module):
 
     def __init__(self, shape):
@@ -345,6 +372,19 @@ class ReshapeLayer(Module):
 
     def forward(self, x):
         return x.reshape(self.shape)
+
+
+class ReshapeBatch(Module):
+
+    def __init__(self, input):
+        super().__init__()
+        self.input = input
+
+    def forward(self, x):
+        if x.ndim == 4:
+            return x.reshape((x.size(0), 1, self.input))
+        else:
+            return x.reshape((1,  1, self.input))
 
 
 class DynamicModule:
