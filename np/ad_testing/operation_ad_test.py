@@ -189,7 +189,7 @@ def test_softmax_operation_gradient_is_correct():
     assert np.isclose(a.gradient, np.array([0.08192507, 0.18483645, 0.22269543])).all()
 
 
-from np.ad.operation import Stack
+from np.ad.operation import Stack, FlipLR
 
 
 # Operations e.g. Stack, Concat, ...
@@ -207,6 +207,16 @@ def test_transpose_operation_gradient_is_correct():
     assert np.equal(b.value, np.array([[1.0, 2.0]])).all()
     b.backward()
     assert np.equal(a.gradient, np.array([[1.0], [1.0]])).all()
+
+
+def test_fliplr_operation_gradient_is_correct():
+    a = Tensor([[1.0, 2.0]])
+    b = FlipLR.forward(a)
+
+    assert np.equal(b.value, np.array([[2.0, 1.0]])).all()
+    b = b.mul([[1.0, 2.0]])
+    b.backward()
+    assert np.equal(a.gradient, np.array([[2.0, 1.0]])).all()
 
 
 def test_reshape_operation_gradient_is_correct():
@@ -284,7 +294,7 @@ def test_equals_operation_gradient_is_correct():
     assert np.equal(b.gradient, np.array([[1.0], [0.0]])).all()
 
 
-from np.ad.operation import conv1d, conv1d_transpose
+from np.ad.operation import conv1d, conv1d_transpose, conv2d, conv2d_transpose
 
 
 # Advanced Operations
@@ -574,6 +584,410 @@ def test_conv1dtranspose_operation_gradient_is_correct():
     y.backward()
     assert np.equal(x.gradient, np.array([[68.0, 88.0, 108.0]])).all()
     assert np.equal(k.gradient, np.array([[20.0, 14.0], [44.0, 38.0]])).all()
+
+
+def test_conv2d_operation_gradient_is_correct():
+    ####################################################################################################################
+    cx = 4
+    cy = 1
+    cz = 0
+    batch = 0
+    channel = 1
+    kx, ky, kz = 2, 1, 1
+    sx, sy, sz = 1, 1, 1
+    x = Tensor(np.arange(1, cy * cx + 1).reshape(cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([[[5.0, 8.0, 11.0]]])).all()
+    nx, ny, nz = conv_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, ny * nx + 1).reshape(1, ny, nx))
+    y.backward()
+    assert np.equal(x.gradient, np.array([[1.0, 4.0, 7.0, 6.0]])).all()
+    assert np.equal(k.gradient, np.array([[14.0, 20.0]])).all()
+
+    ####################################################################################################################
+    cx = 4
+    cy = 4
+    cz = 0
+    batch = 0
+    channel = 1
+    kx, ky, kz = 2, 2, 1
+    sx, sy, sz = 1, 1, 1
+    x = Tensor(np.arange(1, cy * cx + 1).reshape(cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([[[44.0, 54.0, 64.0],
+                                        [84.0, 94.0, 104.0],
+                                        [124.0, 134.0, 144.0]]])).all()
+    nx, ny, nz = conv_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, ny * nx + 1).reshape(1, ny, nx))
+    y.backward()
+    assert np.equal(x.gradient, np.array([[1.0, 4.0, 7.0, 6.0],
+                                          [7.0, 23.0, 33.0, 24.0],
+                                          [19.0, 53.0, 63.0, 42.0],
+                                          [21.0, 52.0, 59.0, 36.0]])).all()
+    assert np.equal(k.gradient, np.array([[348.0, 393.0, 528.0, 573.0]])).all()
+
+    ####################################################################################################################
+    cx = 4
+    cy = 4
+    cz = 0
+    batch = 0
+    channel = 1
+    kx, ky, kz = 2, 2, 1
+    sx, sy, sz = 2, 2, 1
+    x = Tensor(np.arange(1, cy * cx + 1).reshape(cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([[[44.0, 64.0],
+                                        [124.0, 144.0]]])).all()
+    nx, ny, nz = conv_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, ny * nx + 1).reshape(1, ny, nx))
+    y.backward()
+    assert np.equal(x.gradient, np.array([[1.0, 2.0, 2.0, 4.0],
+                                          [3.0, 4.0, 6.0, 8.0],
+                                          [3.0, 6.0, 4.0, 8.0],
+                                          [9.0, 12.0, 12.0, 16.0]])).all()
+    assert np.equal(k.gradient, np.array([[78.0, 88.0, 118.0, 128.0]])).all()
+
+    ####################################################################################################################
+    cx = 4
+    cy = 2
+    cz = 0
+    batch = 0
+    channel = 2
+    kx, ky, kz = 2, 2, 1
+    sx, sy, sz = 2, 2, 1
+    x = Tensor(np.arange(1, cy * cx + 1).reshape(cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([[[44.0, 64.0]],
+                                       [[100.0, 152.0]]])).all()
+    nx, ny, nz = conv_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, ny * nx + 1).reshape(1, ny, nx))
+    y.backward()
+    assert np.equal(x.gradient, np.array([[6.0, 8.0, 12.0, 16.0],
+                                          [10.0, 12.0, 20.0, 24.0]])).all()
+    assert np.equal(k.gradient, np.array([[7.0, 10.0, 19.0, 22.0],
+                                          [7.0, 10.0, 19.0, 22.0]])).all()
+
+    ####################################################################################################################
+    cx = 4
+    cy = 2
+    cz = 1
+    batch = 0
+    channel = 2
+    kx, ky, kz = 2, 2, 1
+    sx, sy, sz = 2, 2, 1
+    x = Tensor(np.arange(1, cz * cy * cx + 1).reshape(cz, cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([[[44.0, 64.0]],
+                                       [[100.0, 152.0]]])).all()
+    nx, ny, nz = conv_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, channel * nz * ny * nx + 1).reshape(channel * nz, ny, nx))
+    y.backward()
+    assert np.equal(x.gradient, np.array([[16.0, 20.0, 22.0, 28.0],
+                                          [24.0, 28.0, 34.0, 40.0]])).all()
+    assert np.equal(k.gradient, np.array([[7.0, 10.0, 19.0, 22.0],
+                                          [15.0, 22.0, 43.0, 50.0]])).all()
+
+    ####################################################################################################################
+    cx = 4
+    cy = 4
+    cz = 4
+    batch = 0
+    channel = 2
+    kx, ky, kz = 2, 2, 2
+    sx, sy, sz = 2, 2, 2
+    x = Tensor(np.arange(1, cz * cy * cx + 1).reshape(cz, cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([[[560.0, 632.0],
+                                        [848.0, 920.0]],
+                                       [[1712.0, 1784.0],
+                                        [2000.0, 2072.0]],
+                                       [[1296.0, 1496.0],
+                                        [2096.0, 2296.0]],
+                                       [[4496.0, 4696.0],
+                                        [5296.0, 5496.0]]])).all()
+    nx, ny, nz = conv_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, channel * nz * ny * nx + 1).reshape(nz * channel, ny, nx))
+    y.backward()
+
+    # assert np.equal(x.gradient, np.array().all()
+    assert np.equal(k.gradient, np.array([[1084., 1120., 1228., 1264., 1660., 1696., 1804., 1840.],
+                                          [2492., 2592., 2892., 2992., 4092., 4192., 4492., 4592.]])).all()
+
+    ####################################################################################################################
+    cx = 2
+    cy = 2
+    cz = 1
+    batch = 2
+    channel = 2
+    kx, ky, kz = 2, 2, 1
+    sx, sy, sz = 1, 1, 1
+    x = Tensor(np.arange(1, batch * cz * cy * cx + 1).reshape(batch, cz, cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([
+        [[[30.0]],
+         [[70.0]]],
+        [[[70.0]],
+         [[174.0]]]
+    ])).all()
+    nx, ny, nz = conv_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, batch * channel * nz * ny * nx + 1).reshape(batch, nz * channel, ny, nx))
+    y.backward()
+
+    assert np.equal(x.gradient, np.array([
+        [[[11.0, 14.0],
+          [17.0, 20.0]]],
+        [[[23.0, 30.0],
+          [37.0, 44.0]]]
+    ])).all()
+    assert np.equal(k.gradient, np.array([[16., 20., 24., 28.],
+                                          [22., 28., 34., 40.]])).all()
+
+
+def conv_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz):
+    nx = int((cx - kx) / sx) + 1
+    ny = int((cy - ky) / sy) + 1
+    nz = int((cz - kz) / sz) + 1
+    return nx, ny, nz
+
+
+def test_conv2dtranspose_operation_gradient_is_correct():
+    ####################################################################################################################
+    cx = 2
+    cy = 1
+    cz = 0
+    batch = 0
+    channel = 1
+    kx, ky, kz = 2, 1, 1
+    sx, sy, sz = 1, 1, 1
+    x = Tensor(np.arange(1, cy * cx + 1).reshape(cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d_transpose.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([[[2.0, 5.0, 2.0]]])).all()
+    nx, ny, nz = conv_t_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, ny * nx + 1).reshape(1, ny, nx))
+    y.backward()
+    assert np.equal(x.gradient, np.array([[4.0, 7.0]])).all()
+    assert np.equal(k.gradient, np.array([[8.0, 5.0]])).all()
+
+    ####################################################################################################################
+    cx = 2
+    cy = 2
+    cz = 0
+    batch = 0
+    channel = 1
+    kx, ky, kz = 2, 2, 1
+    sx, sy, sz = 1, 1, 1
+    x = Tensor(np.arange(1, cy * cx + 1).reshape(cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d_transpose.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([[[4.0, 11.0, 6.0],
+                                        [14.0, 30.0, 14.0],
+                                        [6.0, 11.0, 4.0]]])).all()
+    nx, ny, nz = conv_t_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, ny * nx + 1).reshape(1, ny, nx))
+    y.backward()
+    assert np.equal(x.gradient, np.array([[23.0, 33.0],
+                                          [53.0, 63.0]])).all()
+    assert np.equal(k.gradient, np.array([[77.0, 67.0, 47.0, 37.0]])).all()
+
+    ####################################################################################################################
+    cx = 2
+    cy = 2
+    cz = 0
+    batch = 0
+    channel = 1
+    kx, ky, kz = 2, 2, 1
+    sx, sy, sz = 2, 2, 1
+    x = Tensor(np.arange(1, cy * cx + 1).reshape(cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d_transpose.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([[[4.0, 3.0, 8.0, 6.0],
+                                        [2.0, 1.0, 4.0, 2.0],
+                                        [12.0, 9.0, 16.0, 12.0],
+                                        [6.0, 3.0, 8.0, 4.0]]])).all()
+    nx, ny, nz = conv_t_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, ny * nx + 1).reshape(1, ny, nx))
+    y.backward()
+    assert np.equal(x.gradient, np.array([[26.0, 46.0],
+                                          [106.0, 126.0]])).all()
+    assert np.equal(k.gradient, np.array([128.0, 118.0, 88.0, 78.0])).all()
+
+    ####################################################################################################################
+    cx = 2
+    cy = 1
+    cz = 0
+    batch = 0
+    channel = 2
+    kx, ky, kz = 2, 1, 1
+    sx, sy, sz = 1, 1, 1
+    x = Tensor(np.arange(1, cy * cx + 1).reshape(cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d_transpose.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([
+        [[2.0, 5.0, 2.0]],
+        [[4.0, 11.0, 6.0]]
+    ])).all()
+    nx, ny, nz = conv_t_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, channel * ny * nx + 1).reshape(channel, ny, nx))
+    y.backward()
+    assert np.equal(x.gradient, np.array([[58.0, 78.0]])).all()
+    assert np.equal(k.gradient, np.array([[8.0, 5.0],
+                                          [17.0, 14.0]])).all()
+
+    ####################################################################################################################
+    cx = 2
+    cy = 2
+    cz = 1
+    batch = 0
+    channel = 2
+    kx, ky, kz = 2, 2, 1
+    sx, sy, sz = 2, 2, 1
+    x = Tensor(np.arange(1, cz * cy * cx + 1).reshape(cz, cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d_transpose.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([
+        [[4.0, 3.0, 8.0, 6.0],
+         [2.0, 1.0, 4.0, 2.0],
+         [12.0, 9.0, 16.0, 12.0],
+         [6.0, 3.0, 8.0, 4.0]],
+        [[8.0, 7.0, 16.0, 14.0],
+         [6.0, 5.0, 12.0, 10.0],
+         [24.0, 21.0, 32.0, 28.0],
+         [18.0, 15.0, 24.0, 20.0]]
+    ])).all()
+    nx, ny, nz = conv_t_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, channel * nz * ny * nx + 1).reshape(channel * nz, ny, nx))
+    y.backward()
+    assert np.equal(x.gradient, np.array([[792.0, 936.0],
+                                          [1368.0, 1512.0]])).all()
+    assert np.equal(k.gradient, np.array([[128.0, 118.0, 88.0, 78.0],
+                                          [288.0, 278.0, 248.0, 238.0]])).all()
+
+    ####################################################################################################################
+    cx = 2
+    cy = 2
+    cz = 2
+    batch = 0
+    channel = 2
+    kx, ky, kz = 2, 2, 2
+    sx, sy, sz = 2, 2, 2
+    x = Tensor(np.arange(1, cz * cy * cx + 1).reshape(cz, cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d_transpose.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([[[8.0, 7.0, 16.0, 14.0],
+                                        [6.0, 5.0, 12.0, 10.0],
+                                        [24.0, 21.0, 32.0, 28.0],
+                                        [18.0, 15.0, 24.0, 20.0]],
+                                       [[4.0, 3.0, 8.0, 6.0],
+                                        [2.0, 1.0, 4.0, 2.0],
+                                        [12.0, 9.0, 16.0, 12.0],
+                                        [6.0, 3.0, 8.0, 4.0]],
+                                       [[40.0, 35.0, 48.0, 42.0],
+                                        [30.0, 25.0, 36.0, 30.0],
+                                        [56.0, 49.0, 64.0, 56.0],
+                                        [42.0, 35.0, 48.0, 40.0]],
+                                       [[20.0, 15.0, 24.0, 18.0],
+                                        [10.0, 5.0, 12.0, 6.0],
+                                        [28.0, 21.0, 32.0, 24.0],
+                                        [14.0, 7.0, 16.0, 8.0]],
+                                       [[16.0, 15.0, 32.0, 30.0],
+                                        [14.0, 13.0, 28.0, 26.0],
+                                        [48.0, 45.0, 64.0, 60.0],
+                                        [42.0, 39.0, 56.0, 52.0]],
+                                       [[12.0, 11.0, 24.0, 22.0],
+                                        [10.0, 9.0, 20.0, 18.0],
+                                        [36.0, 33.0, 48.0, 44.0],
+                                        [30.0, 27.0, 40.0, 36.0]],
+                                       [[80.0, 75.0, 96.0, 90.0],
+                                        [70.0, 65.0, 84.0, 78.0],
+                                        [112.0, 105.0, 128.0, 120.0],
+                                        [98.0, 91.0, 112.0, 104.0]],
+                                       [[60.0, 55.0, 72.0, 66.0],
+                                        [50.0, 45.0, 60.0, 54.0],
+                                        [84.0, 77.0, 96.0, 88.0],
+                                        [70.0, 63.0, 80.0, 72.0]]
+                                       ])).all()
+    nx, ny, nz = conv_t_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, channel * nz * ny * nx + 1).reshape(nz * channel, ny, nx))
+    y.backward()
+
+    """assert np.equal(x.gradient, np.array([
+        [[8.0, 7.0],
+         [6.0, 5.0]],
+        [[4.0, 3.0],
+         [2.0, 1.0]]
+    ])).all()"""
+    assert np.equal(k.gradient, np.array([[1840., 1804., 1696., 1660., 1264., 1228., 1120., 1084.],
+                                          [4144., 4108., 4000., 3964., 3568., 3532., 3424., 3388.]])).all()
+
+    ####################################################################################################################
+    cx = 1
+    cy = 1
+    cz = 2
+    batch = 2
+    channel = 2
+    kx, ky, kz = 1, 1, 1
+    sx, sy, sz = 1, 1, 1
+    x = Tensor(np.arange(1, batch * cz * cy * cx + 1).reshape(batch, cz, cy, cx))
+    k = Tensor(np.arange(1, channel * kz * ky * kx + 1).reshape(channel, kz * ky * kx))
+    y = conv2d_transpose.forward(x, k, kx=kx, ky=ky, kz=kz, channel=channel, stride=(sx, sy, sz))
+
+    assert np.equal(y.value, np.array([
+        [
+            [[1.0]],
+            [[2.0]],
+            [[2.0]],
+            [[4.0]]
+        ],
+        [
+            [[3.0]],
+            [[4.0]],
+            [[6.0]],
+            [[8.0]]
+        ]
+    ])).all()
+    nx, ny, nz = conv_t_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz)
+    y = y.mul(np.arange(1, batch*channel * nz * ny * nx + 1).reshape(batch, nz*channel, ny, nx))
+    y.backward()
+
+    assert np.equal(x.gradient, np.array([
+        [[[12.0]],
+         [[18.0]]],
+        [[[36.0]],
+         [[42.0]]]
+    ])).all()
+    assert np.equal(k.gradient, np.array([[44.0],
+                                          [64.0]])).all()
+
+
+def conv_t_shape(cx, cy, cz, kx, ky, kz, sx, sy, sz):
+    tx = cx + (kx - 1) * 2 + (sx - 1) * (cx - 1)
+    nx = tx - kx + 1
+    ty = cy + (ky - 1) * 2 + (sy - 1) * (cy - 1)
+    ny = ty - ky + 1
+    tz = cz + (kz - 1) * 2 + (sz - 1) * (cz - 1)
+    nz = tz - kz + 1
+    return nx, ny, nz
 
 
 pytest.main(["-x", "operation_ad_test.py"])

@@ -13,12 +13,12 @@ def conv1d(xv, kv, kx, ky, channel, stride):
         depth = xv.shape[-3]
         nv_s = (depth, amount, nx * ny)
         x_rs = (depth, amount)
-        res_rs = (depth, ny * kv.shape[-2], nx)
+        res_rs = (depth, ny * channel, nx)
     else:
         depth = 1
         nv_s = (amount, nx * ny)
         x_rs = amount
-        res_rs = (ny * kv.shape[-2], nx)
+        res_rs = (ny * channel, nx)
     nv = np.empty(nv_s)
 
     i = 0
@@ -104,3 +104,83 @@ def conv1d_transpose(xv, kv, kx, ky, channel, stride):
             else:
                 x_t[y * sy + ky - 1, x * sx + kx - 1] = xv[y, x]
     return conv1d(x_t, kv, kx, ky, channel, (1, 1))
+
+
+def conv2d(xv, kv, kx, ky, kz, channel, stride):
+    sx, sy, sz = stride
+    nx = int((xv.shape[-1] - kx) / sx) + 1
+    ny = int((xv.shape[-2] - ky) / sy) + 1
+
+    dep4 = xv.ndim == 4
+    depth4 = xv.shape[-4] if dep4 else 1
+
+    dep3 = xv.ndim == 3
+    depth3 = xv.shape[-3] if dep3 or dep4 else 1
+
+    nz = int((depth3 - kz) / sz) + 1
+
+    amount = kx * ky * kz
+    out_amount = nx * ny * nz
+
+    if dep4:
+        nv_s = (depth4, amount, out_amount)
+        x_rs = (depth4, amount)
+        res_rs = (depth4, nz * channel, ny, nx)
+    elif dep3:
+        nv_s = (amount, out_amount)
+        x_rs = amount
+        res_rs = (nz * channel, ny, nx)
+    else:
+        nv_s = (amount, out_amount)
+        x_rs = amount
+        res_rs = (nz * channel, ny, nx)
+
+    nv = np.empty(nv_s)
+    i = 0
+    for z in range(0, depth3 - kz + 1, sz):
+        for y in range(0, xv.shape[-2] - ky + 1, sy):
+            for x in range(0, xv.shape[-1] - kx + 1, sx):
+                if dep4:
+                    nv[:, :, i] = xv[:, z:z + kz, y:y + ky, x:x + kx].reshape(x_rs)
+                elif dep3:
+                    nv[:, i] = xv[z:z + kz, y:y + ky, x:x + kx].reshape(x_rs)
+                else:
+                    nv[:, i] = xv[y:y + ky, x:x + kx].reshape(x_rs)
+                i += 1
+
+    res = kv @ nv
+    return res.reshape(res_rs), res.shape, nv
+
+
+def conv2d_transpose(xv, kv, kx, ky, kz, channel, stride):
+    sx, sy, sz = stride
+    xy = xv.shape[-2]
+    xx = xv.shape[-1]
+
+    dep4 = xv.ndim == 4
+    depth4 = xv.shape[-4] if dep4 else 1
+
+    dep3 = xv.ndim == 3
+    xz = xv.shape[-3] if dep3 or dep4 else 1
+
+    if dep4:
+        xt_s = (depth4, xz + (kz - 1) * 2 + (sz - 1) * (xz - 1), xy + (ky - 1) * 2 + (sy - 1) * (xy - 1),
+                xx + (kx - 1) * 2 + (sx - 1) * (xx - 1))
+    elif dep3:
+        xt_s = (xz + (kz - 1) * 2 + (sz - 1) * (xz - 1), xy + (ky - 1) * 2 + (sy - 1) * (xy - 1),
+                xx + (kx - 1) * 2 + (sx - 1) * (xx - 1))
+    else:
+        xt_s = (xy + (ky - 1) * 2 + (sy - 1) * (xy - 1), xx + (kx - 1) * 2 + (sx - 1) * (xx - 1))
+
+    x_t = np.zeros(xt_s)
+    for z in range(xz):
+        for y in range(xy):
+            for x in range(xx):
+                if dep4:
+                    x_t[:, z * sz + kz - 1, y * sy + ky - 1, x * sx + kx - 1] = xv[:, z, y, x]
+                elif dep3:
+                    x_t[z * sz + kz - 1, y * sy + ky - 1, x * sx + kx - 1] = xv[z, y, x]
+                else:
+                    x_t[y * sy + ky - 1, x * sx + kx - 1] = xv[y, x]
+    return conv2d(x_t, kv, kx, ky, kz, channel, (1, 1, 1))
+
